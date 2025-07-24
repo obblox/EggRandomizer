@@ -27,7 +27,7 @@ local eggChances = {
     ["Premium Night Egg"] = { ["Hedgehog"] = 50, ["Mole"] = 26, ["Frog"] = 14, ["Echo Frog"] = 10 },
     ["Dinosaur Egg"] = { ["Raptor"] = 35, ["Triceratops"] = 32.5, ["Stegosaurus"] = 28, ["Pterodactyl"] = 3, ["Brontosaurus"] = 1, ["T-Rex"] = 0 },
     ["Primal Egg"] = { ["Parasaurolophus"] = 34, ["Iguanodon"] = 32.5, ["Pachycephalosaurus"] = 28, ["Dilophosaurus"] = 3, ["Ankylosaurus"] = 1, ["Spinosaurus"] = 0 },
-    ["Zen Egg"] = { ["Shiba Inu"] = 34, ["Nihonzaru"] = 32.5, ["Tanuki"] = 28, ["Tanchozuru"] = 3, ["Kappa"] = 1, ["Kitsune"] = 40 }
+    ["Zen Egg"] = { ["Shiba Inu"] = 34, ["Nihonzaru"] = 32.5, ["Tanuki"] = 28, ["Tanchozuru"] = 3, ["Kappa"] = 1, ["Kitsune"] = 0 }
 }
 
 local realESP = {
