@@ -1,0 +1,285 @@
+local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Color Palette
+local COLOR_PRIMARY = Color3.fromRGB(0, 0, 0)
+local COLOR_PURPLE = Color3.fromRGB(153, 41, 234)
+local COLOR_PINK = Color3.fromRGB(204, 102, 218)
+local COLOR_YELLOW = Color3.fromRGB(250, 235, 146)
+
+-- Pet Data
+local eggChances = {
+    ["Common Egg"] = { ["Dog"] = 33, ["Bunny"] = 33, ["Golden Lab"] = 33 },
+    ["Uncommon Egg"] = { ["Black Bunny"] = 25, ["Chicken"] = 25, ["Cat"] = 25, ["Deer"] = 25 },
+    ["Rare Egg"] = { ["Orange Tabby"] = 33.33, ["Spotted Deer"] = 25, ["Pig"] = 16.67, ["Rooster"] = 16.67, ["Monkey"] = 8.33 },
+    ["Legendary Egg"] = { ["Cow"] = 42.55, ["Silver Monkey"] = 42.55, ["Sea Otter"] = 10.64, ["Turtle"] = 2.13, ["Polar Bear"] = 2.13 },
+    ["Mythic Egg"] = { ["Grey Mouse"] = 37.5, ["Brown Mouse"] = 26.79, ["Squirrel"] = 26.79, ["Red Giant Ant"] = 8.93, ["Red Fox"] = 0 },
+    ["Bug Egg"] = { ["Snail"] = 40, ["Giant Ant"] = 35, ["Caterpillar"] = 25, ["Praying Mantis"] = 0, ["Dragonfly"] = 0 },
+    ["Night Egg"] = { ["Hedgehog"] = 47, ["Mole"] = 23.5, ["Frog"] = 21.16, ["Echo Frog"] = 8.35, ["Night Owl"] = 0, ["Raccoon"] = 0 },
+    ["Bee Egg"] = { ["Bee"] = 65, ["Honey Bee"] = 20, ["Bear Bee"] = 10, ["Petal Bee"] = 5, ["Queen Bee"] = 0 },
+    ["Anti Bee Egg"] = { ["Wasp"] = 55, ["Tarantula Hawk"] = 31, ["Moth"] = 14, ["Butterfly"] = 0, ["Disco Bee"] = 0 },
+    ["Common Summer Egg"] = { ["Starfish"] = 50, ["Seagull"] = 25, ["Crab"] = 25 },
+    ["Rare Summer Egg"] = { ["Flamingo"] = 30, ["Toucan"] = 25, ["Sea Turtle"] = 20, ["Orangutan"] = 15, ["Seal"] = 10 },
+    ["Paradise Egg"] = { ["Ostrich"] = 43, ["Peacock"] = 33, ["Capybara"] = 24, ["Scarlet Macaw"] = 3, ["Mimic Octopus"] = 0 },
+    ["Premium Night Egg"] = { ["Hedgehog"] = 50, ["Mole"] = 26, ["Frog"] = 14, ["Echo Frog"] = 10 },
+    ["Dinosaur Egg"] = { ["Raptor"] = 35, ["Triceratops"] = 32.5, ["Stegosaurus"] = 28, ["Pterodactyl"] = 3, ["Brontosaurus"] = 1, ["T-Rex"] = 0 },
+    ["Primal Egg"] = { ["Parasaurolophus"] = 34, ["Iguanodon"] = 32.5, ["Pachycephalosaurus"] = 28, ["Dilophosaurus"] = 3, ["Ankylosaurus"] = 1, ["Spinosaurus"] = 0 },
+    ["Zen Egg"] = { ["Shiba Inu"] = 34, ["Nihonzaru"] = 32.5, ["Tanuki"] = 28, ["Tanchozuru"] = 3, ["Kappa"] = 1, ["Kitsune"] = 40 }
+}
+
+local realESP = {
+    ["Common Egg"] = true,
+    ["Uncommon Egg"] = true,
+    ["Rare Egg"] = true,
+    ["Common Summer Egg"] = true,
+    ["Rare Summer Egg"] = true
+}
+
+local divinePets = {
+    "Raccoon", "Dragon Fly", "Queen Bee", "Red Fox", "Disco Bee", "Butterfly", "T-Rex", "Kitsune", "Spinosaurus"
+}
+
+_G.displayedEggs = {}
+
+function _G.getNonRepeatingRandomPet(eggName, lastPet)
+    local options = eggChances[eggName]
+    if not options then return nil end
+    local pool = {}
+    for pet, chance in pairs(options) do
+        if chance > 0 then table.insert(pool, {pet = pet, chance = chance}) end
+    end
+    local total = 0
+    for _, v in ipairs(pool) do total += v.chance end
+    local roll = math.random() * total
+    local cumulative = 0
+    for _, v in ipairs(pool) do
+        cumulative += v.chance
+        if roll <= cumulative then
+            if v.pet ~= lastPet or math.random() < 0.3 then
+                return v.pet
+            end
+        end
+    end
+    return pool[1] and pool[1].pet or nil
+end
+
+-- ESP Handling
+local function createEspGui(object, labelText)
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "PetESP"
+    billboard.Adornee = object:FindFirstChildWhichIsA("BasePart") or object.PrimaryPart or object
+    billboard.Size = UDim2.new(0, 160, 0, 40)
+    billboard.StudsOffset = Vector3.new(0, 2.8, 0)
+    billboard.AlwaysOnTop = true
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0.3
+    label.TextStrokeColor3 = COLOR_PURPLE
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Text = labelText
+    label.Parent = billboard
+
+    billboard.Parent = object
+    return billboard
+end
+
+local function addESP(egg)
+    if egg:GetAttribute("OWNER") ~= LocalPlayer.Name then return end
+    local eggName = egg:GetAttribute("EggName")
+    local objectId = egg:GetAttribute("OBJECT_UUID")
+    if not eggName or not objectId or _G.displayedEggs[objectId] then return end
+
+    local labelText, firstPet
+    if realESP[eggName] then
+        labelText = eggName
+    else
+        firstPet = _G.getNonRepeatingRandomPet(eggName, nil)
+        labelText = (firstPet or "?") .. (table.find(divinePets, firstPet) and " ✨" or "")
+    end
+
+    local espGui = createEspGui(egg, labelText)
+    _G.displayedEggs[objectId] = {
+        egg = egg,
+        gui = espGui,
+        label = espGui:FindFirstChild("TextLabel"),
+        eggName = eggName,
+        lastPet = firstPet
+    }
+end
+
+local function removeESP(egg)
+    local objectId = egg:GetAttribute("OBJECT_UUID")
+    if objectId and _G.displayedEggs[objectId] then
+        _G.displayedEggs[objectId].gui:Destroy()
+        _G.displayedEggs[objectId] = nil
+    end
+end
+
+for _, egg in CollectionService:GetTagged("PetEggServer") do addESP(egg) end
+CollectionService:GetInstanceAddedSignal("PetEggServer"):Connect(addESP)
+CollectionService:GetInstanceRemovedSignal("PetEggServer"):Connect(removeESP)
+
+-- GUI Setup
+local gui = Instance.new("ScreenGui", PlayerGui)
+gui.Name = "PetRandomizer"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.new(0, 280, 0, 220)
+main.Position = UDim2.new(0.5, -140, 0.5, -110)
+main.BackgroundColor3 = COLOR_PRIMARY
+main.BorderSizePixel = 0
+main.Active = true
+main.Draggable = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 16)
+
+local gradient = Instance.new("UIGradient", main)
+gradient.Color = ColorSequence.new(COLOR_PURPLE, COLOR_PINK)
+gradient.Rotation = 45
+
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1, 0, 0, 34)
+title.Position = UDim2.new(0, 0, 0, 12)
+title.BackgroundTransparency = 1
+title.Text = "Pet Randomizer"
+title.TextColor3 = COLOR_YELLOW
+title.TextStrokeTransparency = 0.3
+title.TextStrokeColor3 = COLOR_PURPLE
+title.Font = Enum.Font.FredokaOne
+title.TextSize = 24
+
+local subtitle = Instance.new("TextLabel", main)
+subtitle.Size = UDim2.new(1, 0, 0, 22)
+subtitle.Position = UDim2.new(0, 0, 0, 48)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = "Made by Obblox"
+subtitle.TextColor3 = COLOR_PINK
+subtitle.TextStrokeTransparency = 0.5
+subtitle.TextStrokeColor3 = COLOR_PURPLE
+subtitle.Font = Enum.Font.Gotham
+subtitle.TextSize = 16
+
+local closeBtn = Instance.new("TextButton", main)
+closeBtn.Size = UDim2.new(0, 32, 0, 32)
+closeBtn.Position = UDim2.new(1, -40, 0, 12)
+closeBtn.BackgroundColor3 = COLOR_PURPLE
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 18
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
+closeBtn.MouseButton1Click:Connect(function()
+    gui.Enabled = false
+end)
+
+-- Buttons
+local buttonHeight, spacing, margin = 34, 10, 14
+local startY = 220 - (buttonHeight + spacing) * 3 - margin
+
+local autoStop, lastRerollTime, cooldown = true, 0, 6
+local rerolling = false
+
+local stopBtn = Instance.new("TextButton", main)
+stopBtn.Size = UDim2.new(1, -20, 0, buttonHeight)
+stopBtn.Position = UDim2.new(0, 10, 0, startY)
+stopBtn.BackgroundColor3 = COLOR_PURPLE
+stopBtn.TextColor3 = COLOR_YELLOW
+stopBtn.Text = "[A] Auto Stop: ON"
+stopBtn.Font = Enum.Font.Gotham
+stopBtn.TextSize = 16
+Instance.new("UICorner", stopBtn).CornerRadius = UDim.new(0, 12)
+stopBtn.MouseButton1Click:Connect(function()
+    autoStop = not autoStop
+    stopBtn.Text = autoStop and "[A] Auto Stop: ON" or "[A] Auto Stop: OFF"
+end)
+
+local rerollBtn = Instance.new("TextButton", main)
+rerollBtn.Size = UDim2.new(1, -20, 0, buttonHeight)
+rerollBtn.Position = UDim2.new(0, 10, 0, startY + (buttonHeight + spacing))
+rerollBtn.BackgroundColor3 = COLOR_PINK
+rerollBtn.TextColor3 = COLOR_YELLOW
+rerollBtn.Text = "[B] Reroll Display"
+rerollBtn.Font = Enum.Font.Gotham
+rerollBtn.TextSize = 16
+Instance.new("UICorner", rerollBtn).CornerRadius = UDim.new(0, 12)
+
+rerollBtn.MouseButton1Click:Connect(function()
+    local now = tick()
+    if rerolling or now - lastRerollTime < cooldown then return end
+    rerolling = true
+    lastRerollTime = now
+
+    local duration = cooldown
+    local interval = 0.03
+    local startTime = tick()
+
+    while tick() - startTime < duration do
+        for objectId, data in pairs(_G.displayedEggs or {}) do
+            local pet = _G.getNonRepeatingRandomPet(data.eggName, data.lastPet)
+            if pet and data.label then
+                local isDivine = table.find(divinePets, pet) ~= nil
+                data.label.Text = pet .. (isDivine and " ✨" or "")
+                data.label.TextColor3 = isDivine and COLOR_YELLOW or COLOR_PINK
+            end
+        end
+        task.wait(interval)
+    end
+
+    -- Final pet
+    for objectId, data in pairs(_G.displayedEggs or {}) do
+        local pet = _G.getNonRepeatingRandomPet(data.eggName, data.lastPet)
+        if pet and data.label then
+            local isDivine = table.find(divinePets, pet) ~= nil
+            data.label.Text = pet .. (isDivine and " ✨" or "")
+            data.label.TextColor3 = isDivine and COLOR_YELLOW or COLOR_PINK
+            data.lastPet = pet
+        end
+    end
+
+    rerolling = false
+end)
+
+local infoBtn = Instance.new("TextButton", main)
+infoBtn.Size = UDim2.new(1, -20, 0, buttonHeight)
+infoBtn.Position = UDim2.new(0, 10, 0, startY + 2 * (buttonHeight + spacing))
+infoBtn.BackgroundColor3 = COLOR_PURPLE
+infoBtn.TextColor3 = Color3.new(1, 1, 1)
+infoBtn.Text = "[?] Info"
+infoBtn.Font = Enum.Font.Gotham
+infoBtn.TextSize = 16
+Instance.new("UICorner", infoBtn).CornerRadius = UDim.new(0, 12)
+infoBtn.MouseButton1Click:Connect(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Pet Randomizer Info",
+        Text = "Auto Stop on: Raccoon, Dragonfly, Kitsune, Queen Bee, Red Fox, Disco Bee, Butterfly, T-Rex, Spinosaurus.",
+        Duration = 6
+    })
+end)
+
+-- Hue Animation + Button Cooldown Display
+local hue = 0
+RunService.RenderStepped:Connect(function()
+    hue = (hue + 0.005) % 1
+    for _, data in pairs(_G.displayedEggs) do
+        if data.label then
+            data.label.TextColor3 = Color3.fromHSV(hue, 1, 1)
+        end
+    end
+
+    local timeLeft = cooldown - (tick() - lastRerollTime)
+    if timeLeft > 0 then
+        rerollBtn.Text = string.format("[B] Reroll (%.1f)", math.max(0, timeLeft))
+        rerollBtn.BackgroundColor3 = COLOR_PRIMARY
+    else
+        rerollBtn.Text = "[B] Reroll Display"
+        rerollBtn.BackgroundColor3 = COLOR_PINK
+    end
+end)
